@@ -1,8 +1,0 @@
-Cython
-codecov
-coverage
-flake8
-numpy
-pre-commit
-pytest
-setuptools
