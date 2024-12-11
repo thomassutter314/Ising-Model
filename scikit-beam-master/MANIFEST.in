@@ -1,0 +1,7 @@
+include versioneer.py
+include skbeam/_version.py
+include requirements.txt
+include requirements-optional.txt
+include LICENSE
+recursive-include docs/source *.rst conf.py Makefile make.bat
+recursive-include * *.pyx *.h *.c

@@ -1,0 +1,7 @@
+always_yes: true
+channels:
+- nsls2forge
+- defaults
+show_channel_urls: true
+track_features:
+- nomkl

@@ -1,0 +1,7 @@
+fabio
+lmfit
+numpy>=1.15
+pyfai
+scikit-image
+scipy
+six

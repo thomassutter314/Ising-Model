@@ -1,0 +1,5 @@
+lmfit
+netCDF4
+scikit-image
+scipy
+xraylib
