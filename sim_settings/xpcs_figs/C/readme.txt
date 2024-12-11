@@ -1,0 +1,1 @@
+g2 values for the pure sample at two different temps. Each data set has measurements for 3 different q values
