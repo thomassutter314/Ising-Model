@@ -1,1 +1,0 @@
-Data here is F measured for the CDW peak on the Cu8% sample at 70 K, 95 K, and 100 K.
