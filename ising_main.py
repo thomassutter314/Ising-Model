@@ -5,10 +5,7 @@ Description:
     to initialize an Ising model and execute time evolution upon it.
     This script contains most of the heavier computational functions of this project
     
-    This mini version focuses on having a region surrounded by an infinite temperature boundary condition
 """
-
-# Path for imageJ: C:\Users\thoma\Documents\GitHub\Ising-Model\results\default\time_sequence
 
 import numpy as np
 from numpy.random import rand
@@ -206,7 +203,7 @@ class Model_3d():
     # temperature: dimensionless temp of Ising model
     # mass: 32 bit float square image that contains the map of the local "mass" (stricly positive). This is related to the local Tc by Tc ~ 1/mass
     # field: 32 bit float square image that contains the map of the local "field" (either sign). This linearly couples to the order parameter.
-    def __init__(self, temperature, mass, field,
+    def __init__(self, temperature, mass, field, cooling_rate = 0, min_temperature = 0.25,
                  step_number = 5000, initial_step_number = 10000, exposure_time = 10,
                  save_loc = 'results//default', real_space_images_to_save = 100):
         
@@ -220,6 +217,12 @@ class Model_3d():
         self.initial_step_number = initial_step_number
         
         self.temp = temperature
+        self.cooling_rate = cooling_rate
+        if self.cooling_rate == 0:
+            self.min_temperature = self.temp
+        else:
+            self.min_temperature = min_temperature
+            
         print(f'Temperature = {self.temp}')
         
         self.exposure_time = exposure_time
@@ -300,7 +303,13 @@ class Model_3d():
                     print('save_index', save_index)
                     tifffile.imwrite(f'{self.save_loc}\\time_sequence\\{i//self.save_distance - 1}.tiff', np.array(255*self.config_save[save_index], dtype = 'uint8'))
                 save_index += 1
-                
+            
+            # cool by the cooling rate:
+            if self.temp > self.min_temperature:
+                self.temp += -self.cooling_rate
+            else:
+                self.temp = self.min_temperature
+            
             update_3d(self.config, self.field, self.mass, self.temp, int(self.update_fraction*self.L**3))
             self.m[i] = np.sum(self.config*self.m_mask)
             
@@ -310,7 +319,7 @@ class Model_3d():
             self.config_save[save_index] += ((self.config+1)//2 - self.config_save[save_index])/(i%self.save_distance + 1)
             
             if i%(int(0.01*self.step_number)) == 0:
-                print(f'{int(100*i/self.step_number)} %, working on image index: {image_index}')
+                print(f'{int(100*i/self.step_number)} %, working on image index: {image_index}, temp = {self.temp}')
         
         tf = time.perf_counter()
         
@@ -488,19 +497,15 @@ def go(temperatures):
     for i in range(len(temperatures)):
         temperature = temperatures[i]
         
-        # ~ model = Model_3d(temperature = temperature,
-                  # ~ step_number = 100000, initial_step_number = 2500, exposure_time = 10,
-                  # ~ real_space_images_to_save = 100,
-                  # ~ mass = mass, field = field)
-                  
-        model = Model_3d(temperature = temperature,
-            step_number = 2000000, initial_step_number = 2500, exposure_time = 100,
-            real_space_images_to_save = 1000,
-            mass = mass, field = field)
+        model = Model_3d(temperature = temperature, cooling_rate = 0,
+                  step_number = 20000, initial_step_number = 0, exposure_time = 10,
+                  real_space_images_to_save = 200,
+                  mass = mass, field = field)
+
                   
         plotting.set_box_plots_3d(r'results\default\time_sequence',  diagF = False)
     
-        # ~ analyze_g2_curves(r'results\default\g2.csv')
+        analyze_g2_curves(r'results\default\g2.csv')
         
         analyze_magnetization(r'results//default//magnetization.csv')
                   
@@ -508,12 +513,6 @@ def go(temperatures):
         os.rename('results//default', f'results//T{string}_1')
 
 
-    
-# ~ go(temperatures = [4.0, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9, 5.0])
-# ~ go(temperatures = [4.90, 4.95, 5.00, 5.05])
-go(temperatures = [5.0])
 
 
-# ~ analyze_magnetization(r'C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\results\random_mass\T5.0_1\magnetization.csv')
-
-
+go(temperatures = [4.0])

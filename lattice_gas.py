@@ -1,11 +1,6 @@
 """
-Author: Thomas Sutter
 Description:
-    Code here creates the class "Model" that allows one 
-    to initialize an Ising model and execute time evolution upon it.
-    This script contains most of the heavier computational functions of this project
-    
-    This mini version focuses on having a region surrounded by an infinite temperature boundary condition
+    Code simulates a lattice gas, this is used to create the initial random Tc and random field disorder distributions for the Ising model
 """
 
 # Path for imageJ: C:\Users\thoma\Documents\GitHub\Ising-Model\results\default\time_sequence
@@ -41,7 +36,7 @@ import utils
 import plotting
 
 @jit(nopython = True)
-def compute_config_energy(pars, L, alpha = 0):
+def compute_config_energy(pars, L, alpha = 100):
     U = 0
     for id1 in range(pars.shape[0]):
         for i in range(pars.shape[0] - 1 - id1):
@@ -94,11 +89,11 @@ def evolve(pars, L, steps = 500, beta = 1):
         if tprob >= 1 or np.random.random() < tprob:
             pars[n, i] = (pars[n, i] + (2*j - 1))%L # with probability tprob, execute motion
         
-def simulate_lattice_gas(L = 60, N = 200):
+def simulate_lattice_gas(L = 100, N = 1000, steps = 300):
     # Generate a collection of N particles in 3D
     pars = np.random.randint(0, L, size = [N, 3])
     
-    for i in range(30):
+    for i in range(steps):
         if i%100 == 0:
             print(i)
         evolve(pars, L)
@@ -134,7 +129,7 @@ def load_pars_and_combine(pars_locs, L = 30):
     plt.show()
     
 # Loads in the pars and makes random mass voxel images
-def load_and_construct_mass(pars_loc = 'pars.npy', L = 30, A = 0.1, sigma = 1, power = 6):
+def load_and_construct_mass(pars_loc = 'pars.npy', L = 100, A = 0.25, sigma = 4, power = 4):
     pars = np.load(pars_loc)
     print(f'pars shape: {pars.shape}')
     
@@ -155,7 +150,7 @@ def load_and_construct_mass(pars_loc = 'pars.npy', L = 30, A = 0.1, sigma = 1, p
     plt.show()
 
 # Loads in the pars and makes random field voxel images
-def load_and_construct_field(pars_loc = 'pars.npy', L = 60, A = 1, sigma = 1, power = 4):
+def load_and_construct_field(pars_loc = 'pars.npy', L = 100, A = 1, sigma = 1, power = 2):
     pars = np.load(pars_loc)
     signs = 2*np.random.randint(0, 2, len(pars)) - 1
     print(f'pars shape: {pars.shape}')
@@ -176,9 +171,13 @@ def load_and_construct_field(pars_loc = 'pars.npy', L = 60, A = 1, sigma = 1, po
     plotting.box_plot_3d(255*field, ax)
     plt.show()
 
-# ~ simulate_lattice_gas()
+# ~ simulate_lattice_gas(steps = 1)
 
 # ~ load_pars_and_combine(['pars_1.npy', 'pars_2.npy', 'pars_3.npy', 'pars_4.npy', 'pars_5.npy', 'pars_6.npy', 'pars_7.npy', 'pars_8.npy', 'pars_9.npy', 'pars_10.npy'])
 # ~ load_pars_and_combine(['pars_1.npy','pars_2.npy', 'pars_4.npy', 'pars_5.npy', 'pars_6.npy', 'pars_7.npy', 'pars_11.npy', 'pars_12.npy', 'pars_13.npy', 'pars_14.npy', 'pars_15.npy', 'pars_16.npy'])
 
-load_and_construct_field(pars_loc = 'results//pars_combine.npy')
+# ~ load_and_construct_field(pars_loc = 'results//pars_combine.npy')
+# ~ load_and_construct_mass(pars_loc = 'pars.npy')
+
+load_and_construct_field(pars_loc = 'pars.npy')
+

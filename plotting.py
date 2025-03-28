@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from matplotlib import cm
+import pyvista as pv
 import numpy as np
 from scipy import optimize as opt
 from scipy.ndimage import map_coordinates
@@ -7,6 +8,7 @@ from scipy.interpolate import RegularGridInterpolator
 import os
 import tifffile
 import pandas as pd
+import time
 
 import utils
 
@@ -194,11 +196,16 @@ def diag_box_plot_3d(data, ax, vmin = 0, vmax = 255,
     ax.view_init(22, -13, 0)
     ax.set_box_aspect((1, 1, 1), zoom=1)
    
-    
 def set_box_plots_3d(file_dir, N = 5, vmin = 0, vmax = 255, diagF = True):
     files_in_dir = os.listdir(file_dir)
-    step = int(len(files_in_dir)/N)
+    files_in_dir = sorted(files_in_dir, key = lambda x: int(os.path.splitext(x)[0]))
     
+    if len(files_in_dir)%N == 0:
+        step = int(len(files_in_dir)/N)
+    else:
+        step = int(len(files_in_dir)/N) + 1
+        
+    print('step', step)
     # Create a figure with 3D ax
     fig = plt.figure(figsize=(9, 2.5))
     
@@ -215,7 +222,21 @@ def set_box_plots_3d(file_dir, N = 5, vmin = 0, vmax = 255, diagF = True):
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0.05, hspace=0)
     plt.show()
 
-
+def make_cheese(data_dir, cheese_dir, vmin = 0, vmax = 255):
+    files_in_dir = os.listdir(data_dir)
+    files_in_dir = sorted(files_in_dir, key = lambda x: int(os.path.splitext(x)[0]))
+    
+    for i in range(len(files_in_dir)):
+        print(i)
+        voxel_im = tifffile.imread(data_dir + '//' + files_in_dir[i])
+        
+        fig = plt.figure(figsize=(2.5, 2.5))
+        ax = fig.add_subplot(1, 1, 1, projection='3d')
+        diag_box_plot_3d(voxel_im, ax, vmin, vmax)
+        
+        plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
+        plt.savefig(f'{cheese_dir}//{i}.png')
+        plt.clf()
                 
 def plot_levi_cevita():
     def explode(data):
@@ -303,11 +324,16 @@ def combine_plots(maindir, dirs, label, cmap = cm.plasma):
     
     # Create an average of the g2_s, average over axis 0 because that is the axis for specifying the dir
     g2_avg = np.mean(g2_s, axis = 0)
-    F2_avg = ((g2_avg-1)/(g2_avg[:, 0, None] - 1))
     
-    print(F2_avg.shape)
-    # ~ np.savetxt('test.csv', F2_avg.transpose(), delimiter = ',')
-    # ~ np.savetxt('test_1.csv',lag_steps.transpose(), delimiter = ',')
+    frame0 = 0
+    F2_avg = ((g2_avg-1)/(g2_avg[:, frame0, None] - 1))
+    
+    if True:
+        print(F2_avg.shape)
+        data_to_save = np.array([lag_steps,F2_avg[0],F2_avg[1],F2_avg[2]]).transpose()
+        np.savetxt('F2.csv',data_to_save)
+        # ~ np.savetxt('test.csv', F2_avg.transpose(), delimiter = ',')
+        # ~ np.savetxt('test_1.csv',lag_steps.transpose(), delimiter = ',')
     
     fig, axs = plt.subplots(1, 3)
     fig.suptitle('Separate runs plotted separately')
@@ -384,25 +410,21 @@ def plot_spatial_corr(fileName):
         c = np.roll(c, c.shape[i]//2, axis = i)
     print(c.shape)
     
-    plt.imshow(c[:, :, c.shape[2]//2])
+
+    c = np.fft.fftshift(compute_c(mass))
+    plt.imshow(c)
     plt.show()
     
-    tifffile.imwrite('corr_test.tiff', np.array(c, dtype = np.float32))
-    
-    # ~ c = np.fft.fftshift(compute_c(mass))
-    # ~ plt.imshow(c)
-    # ~ plt.show()
-    
-    # ~ y = c[c.shape[0]//2, :]
-    # ~ x = range(len(y))
-    # ~ p0 = [x[len(x)//2], len(x)//4, max(y)-min(y), min(y)]
-    # ~ popt, pcov = opt.curve_fit(gaussian, x, y, p0 = p0)
-    # ~ print(popt)
-    # ~ xx = np.linspace(min(x), max(x), 1000)
-    # ~ yy = gaussian(xx, *popt)
-    # ~ plt.scatter(np.array(x) - x[len(x)//2], y)
-    # ~ plt.plot(xx - x[len(x)//2], yy, 'g-')
-    # ~ plt.show()
+    y = c[c.shape[0]//2, :]
+    x = range(len(y))
+    p0 = [x[len(x)//2], len(x)//4, max(y)-min(y), min(y)]
+    popt, pcov = opt.curve_fit(gaussian, x, y, p0 = p0)
+    print(popt)
+    xx = np.linspace(min(x), max(x), 1000)
+    yy = gaussian(xx, *popt)
+    plt.scatter(np.array(x) - x[len(x)//2], y)
+    plt.plot(xx - x[len(x)//2], yy, 'g-')
+    plt.show()
 
 def all_plot(mainDir = 'results'):
     df = pd.read_csv(f'{mainDir}//tau_vs_temp_data.csv')
@@ -457,88 +479,207 @@ def all_plot(mainDir = 'results'):
     plt.legend()
     plt.show()
 
+def compare_all_plot(dir1, dir2, dir3):
+    fig, ax = plt.subplots()
+    
+    if True:
+        df = pd.read_csv(f'{dir1}//tau_vs_temp_data.csv')
+        
+        temps = np.array(df['temp'].tolist())
+        Tc = 4.52
+        temps = (temps - Tc)/Tc
+        tau_1 = np.array(df['tau_1'].tolist())
+        tau_2 = np.array(df['tau_2'].tolist())
+        tau_3 = np.array(df['tau_3'].tolist())
+        
+        cmap = cm.viridis_r
+        offset = 0
+        step = 0.22
+        colors_for_qs = [cmap(offset),cmap(step+offset),cmap(2*step+offset)]
+        
+        ax.scatter(temps, tau_1, fc = colors_for_qs[0], ec = 'black', label = 'field disorder: roi 0')
+        # ~ ax.scatter(temps, tau_2, fc = colors_for_qs[1], ec = 'black', label = 'roi 1')
+        # ~ ax.scatter(temps, tau_3, fc = colors_for_qs[2], ec = 'black', label = 'roi 2')
+        
+        def fit_func_1(x, A):
+            # ~ x0, gamma =  1.20382101e+02, -7.66184239e-02
+            x0, gamma =  5.3, -10
+            return A*np.exp(gamma * (x - x0)) + 5.6
+            
+        # add the fit funcs
+        p0_1 = [50]
+        p0_2 = [20]
+        p0_3 = [10]
+    
+        
+        linewidth = 5
+        linealpha = 0.5
+        popt_1, pcov_1 = opt.curve_fit(fit_func_1, temps, tau_1, p0 = p0_1)
+        popt_2, pcov_2 = opt.curve_fit(fit_func_1, temps, tau_2, p0 = p0_2)
+        popt_3, pcov_3 = opt.curve_fit(fit_func_1, temps, tau_3, p0 = p0_3)
+        # ~ popt_1 = p0_1
+        # ~ popt_2 = p0_2
+        # ~ popt_3 = p0_3
+        
+        tt = np.linspace(min(temps), max(temps), 1000)
+        yy = fit_func_1(tt, *popt_1)
+        # ~ plt.plot(tt, yy, c = colors_for_qs[0], linewidth = linewidth, zorder = -10, alpha = linealpha)
+        yy = fit_func_1(tt, *popt_2)
+        # ~ plt.plot(tt, yy, c = colors_for_qs[1], linewidth = linewidth, zorder = -10, alpha = linealpha)
+        yy = fit_func_1(tt, *popt_3)
+        # ~ plt.plot(tt, yy, c = colors_for_qs[2], linewidth = linewidth, zorder = -10, alpha = linealpha)
+    
+    if True:
+        df = pd.read_csv(f'{dir2}//tau_vs_temp_data.csv')
+        
+        temps = np.array(df['temp'].tolist())
+        Tc = 4.8
+        temps = (temps - Tc)/Tc
+        tau_1 = np.array(df['tau_1'].tolist())
+        tau_2 = np.array(df['tau_2'].tolist())
+        tau_3 = np.array(df['tau_3'].tolist())
+        
+        cmap = cm.viridis_r
+        offset = 0
+        step = 0.22
+        colors_for_qs = [cmap(offset),cmap(step+offset),cmap(2*step+offset)]
+        
+        ax.scatter(temps, tau_1, fc = colors_for_qs[0], ec = 'black', label = 'mass disorder: roi 0', marker = '^')
+        ax.scatter(temps, tau_2, fc = colors_for_qs[1], ec = 'black', label = 'roi 1', marker = '^')
+        ax.scatter(temps, tau_3, fc = colors_for_qs[2], ec = 'black', label = 'roi 2', marker = '^')
+        
+        def fit_func_1(x, A):
+            # ~ x0, gamma =  1.20382101e+02, -7.66184239e-02
+            x0, gamma =  5.3, -10
+            return A*np.exp(gamma * (x - x0)) + 5.6
+            
+        # add the fit funcs
+        p0_1 = [50]
+        p0_2 = [20]
+        p0_3 = [10]
+    
+        
+        linewidth = 5
+        linealpha = 0.5
+        popt_1, pcov_1 = opt.curve_fit(fit_func_1, temps, tau_1, p0 = p0_1)
+        popt_2, pcov_2 = opt.curve_fit(fit_func_1, temps, tau_2, p0 = p0_2)
+        popt_3, pcov_3 = opt.curve_fit(fit_func_1, temps, tau_3, p0 = p0_3)
+        # ~ popt_1 = p0_1
+        # ~ popt_2 = p0_2
+        # ~ popt_3 = p0_3
+        
+        tt = np.linspace(min(temps), max(temps), 1000)
+        yy = fit_func_1(tt, *popt_1)
+        # ~ plt.plot(tt, yy, c = colors_for_qs[0], linewidth = linewidth, zorder = -10, alpha = linealpha)
+        yy = fit_func_1(tt, *popt_2)
+        # ~ plt.plot(tt, yy, c = colors_for_qs[1], linewidth = linewidth, zorder = -10, alpha = linealpha)
+        yy = fit_func_1(tt, *popt_3)
+        # ~ plt.plot(tt, yy, c = colors_for_qs[2], linewidth = linewidth, zorder = -10, alpha = linealpha)
+        
+    if True:
+        df = pd.read_csv(f'{dir3}//tau_vs_temp_data.csv')
+        
+        temps = np.array(df['temp'].tolist())
+        Tc = 4.5
+        temps = (temps - Tc)/Tc
+        tau_1 = np.array(df['tau_1'].tolist())
+        tau_2 = np.array(df['tau_2'].tolist())
+        tau_3 = np.array(df['tau_3'].tolist())
+        
+        cmap = cm.viridis_r
+        offset = 0
+        step = 0.22
+        colors_for_qs = [cmap(offset),cmap(step+offset),cmap(2*step+offset)]
+        
+        ax.scatter(temps, tau_1, fc = colors_for_qs[0], ec = 'black', label = 'pristine: roi 0', marker = 's')
+        ax.scatter(temps, tau_2, fc = colors_for_qs[1], ec = 'black', label = 'roi 1', marker = 's')
+        ax.scatter(temps, tau_3, fc = colors_for_qs[2], ec = 'black', label = 'roi 2', marker = 's')
+        
+        def fit_func_1(x, A):
+            # ~ x0, gamma =  1.20382101e+02, -7.66184239e-02
+            x0, gamma =  5.3, -10
+            return A*np.exp(gamma * (x - x0)) + 5.6
+            
+        # add the fit funcs
+        p0_1 = [50]
+        p0_2 = [20]
+        p0_3 = [10]
+    
+        
+        linewidth = 5
+        linealpha = 0.5
+        popt_1, pcov_1 = opt.curve_fit(fit_func_1, temps, tau_1, p0 = p0_1)
+        popt_2, pcov_2 = opt.curve_fit(fit_func_1, temps, tau_2, p0 = p0_2)
+        popt_3, pcov_3 = opt.curve_fit(fit_func_1, temps, tau_3, p0 = p0_3)
+        # ~ popt_1 = p0_1
+        # ~ popt_2 = p0_2
+        # ~ popt_3 = p0_3
+        
+        tt = np.linspace(min(temps), max(temps), 1000)
+        yy = fit_func_1(tt, *popt_1)
+        # ~ plt.plot(tt, yy, c = colors_for_qs[0], linewidth = linewidth, zorder = -10, alpha = linealpha)
+        yy = fit_func_1(tt, *popt_2)
+        # ~ plt.plot(tt, yy, c = colors_for_qs[1], linewidth = linewidth, zorder = -10, alpha = linealpha)
+        yy = fit_func_1(tt, *popt_3)
+        # ~ plt.plot(tt, yy, c = colors_for_qs[2], linewidth = linewidth, zorder = -10, alpha = linealpha)
+    
+    ax.set_ylabel('tau')
+    ax.set_xlabel('(T-Tc)/Tc')
+    ax.legend()
+    ax.set_yscale('log')
+    
+    # ~ .legend()
+    plt.show()
+    
+def voxel_plot_test():
+
+    for i in range(42):
+        data = tifffile.imread(r"C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\results\default\time_sequence" + f"//{i}.tiff")
+        # ~ data = tifffile.imread(r"C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\results\domain_walls\random_field\time_sequence_2_c\7.tiff")
+        # ~ data = tifffile.imread(r"C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\results\random_mass\T5.0_1\time_sequence\10.tiff")
+        
+        
+        # Create a UniformGrid (Voxel structure)
+        grid = pv.ImageData()
+        grid.dimensions = np.array(data.shape) + 1  # PyVista uses dimensions one more than the shape
+        grid.origin = (0, 0, 0)  # Set the origin
+        grid.spacing = (1, 1, 1)  # Set voxel spacing
+        grid.cell_data["values"] = data.flatten(order="F")  # Flatten in Fortran order
+        
+    
+        opacity = 256*(np.linspace(-1, 1, 256))**2
+        
+        # ~ opacity = 256*np.abs(np.linspace(-1, 1, 256))
+        # ~ opacity = 256*np.linspace(0, 1, 256)**3
+        
+        # Create a PyVista plotter and add the voxel grid
+        plotter = pv.Plotter(window_size=[200, 200], off_screen=True)
+        plotter.add_volume(grid, cmap="bwr", opacity=opacity, show_scalar_bar = False)  # Adjust colormap and opacity
+        
+        # Create an outline of the grid (the cube)
+        outline = grid.outline()  # Creates an outline around the grid
+        
+        # Add the outline to the plotter as a solid line
+        plotter.add_mesh(outline, color="black", line_width=3)  # Customize color and line width
+        
+        # setting the camera position
+        plotter.camera_position = 'iso'
+        plotter.camera.azimuth = 10
+        
+        # saving the plot as an image
+        plotter.screenshot(r"C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\results\default\voxel_images" + f'//{i}.png')
+        
+        print(f"Finished Image {i}")
+        
+        # Show the plot
+        plotter.show()
+    
+    
     
     
 if __name__ == '__main__':
     
-    # Random mass plots
-    # ~ mainDir = 'results//random_mass'
-    # ~ combine_plots(mainDir, ['T5.6_1'], label = 5.6)
-    # ~ combine_plots(mainDir, ['T5.5_1'], label = 5.5)
-    # ~ combine_plots(mainDir, ['T5.4_1'], label = 5.4)
-    # ~ combine_plots(mainDir, ['T5.3_1', 'T5.3_2'], label = 5.3)
-    # ~ combine_plots(mainDir, ['T5.2_1', 'T5.2_2', 'T5.2_3'], label = 5.2)
-    # ~ combine_plots(mainDir, ['T5.1_1'], label = 5.1)
-    # ~ combine_plots(mainDir, ['T5.0_1'], label = 5.0)
-    
-    # random field plots
-    # ~ mainDir = 'results//random_field'
-    # ~ combine_plots(mainDir, ['T5.05_1', 'T5.05_2'], label = 5.05)
-    # ~ combine_plots(mainDir, ['T5.00_1', 'T5.00_2'], label = 5.00)
-    # ~ combine_plots(mainDir, ['T4.95_1', 'T4.95_2'], label = 4.95)
-    # ~ combine_plots(mainDir, ['T4.90_1', 'T4.90_2'], label = 4.90) 
-    # ~ combine_plots('results', ['T4.85_1', 'T4.85_2'], label = 4.85)
-    # ~ combine_plots('results', ['T4.80_1', 'T4.80_2'], label = 4.80)
-    # ~ combine_plots('results', ['T4.75_1'], label = 4.75)
-    # ~ combine_plots('results', ['T4.70_1'], label = 4.70)
-    # ~ combine_plots(mainDir, ['T4.65_1'], label = 4.65)
-    # ~ combine_plots('results', ['T4.60_1'], label = 4.60)
-    # ~ combine_plots('results', ['T4.55_1'], label = 4.55)
-    # ~ combine_plots(mainDir, ['T4.50_1','T4.50_2','T4.50_3'], label = 4.50)
-    # ~ combine_plots(mainDir, ['T4.44_1'], label = 4.45)
-    # ~ combine_plots(mainDir, ['T4.40_1'], label = 4.40)
-    # ~ combine_plots(mainDir, ['T4.35_1'], label = 4.35)
-    # ~ combine_plots('results', ['T4.30_1','T4.30_2'], label = 4.30)
-    # ~ combine_plots(mainDir, ['T4.25_1', 'T4.25_2'], label = 4.25)
-    
-    # ~ combine_plots('results', ['T4.2_1'], label = 4.2)
-    # ~ combine_plots('results', ['T4.1_1'], label = 4.1)
-    # ~ combine_plots('results', ['T4.0_1'], label = 4.0)
+    mainDir = "results//random_mass"
+    combine_plots(mainDir, ['T5.0_1'], label = 5.01)
 
-    
-    
-    # ~ all_plot(mainDir = 'results//random_mass')
-    
-    
-    
-    set_box_plots_3d(r"C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\results\random_mass\T5.0_1\time_sequence")
-    # ~ set_box_plots_3d(r"C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\results\random_field\T4.50_1\time_sequence")
-    ###############
-    # ~ voxel_image = 700*tifffile.imread(r"C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\results\random_mass\mass.tiff")
-    # ~ fig = plt.figure(figsize=(3, 3))
-    # ~ ax = fig.add_subplot(1, 1, 1, projection='3d')
-    # ~ diag_box_plot_3d(voxel_image, ax)
-    
-    # ~ plt.show()
-    
-    # ~ diag_cut_plot_3d(r"C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\results\random_mass\T5.0_1\time_sequence\0.tiff")
-    
-    
-    
-    # ~ plot_spatial_corr(r"C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\results\random_mass\mass.tiff")
-    
-    
-    
-    
-    
-    # ~ record_fit(1.2, [1, 2, 3])
-    
-    
-    # ~ plot_levi_cevita()
-    
-    # ~ fig = plt.figure(figsize=(15, 3))
-    # ~ ax = fig.add_subplot(1, 1, 1, projection='3d')
-    # ~ data = tifffile.imread(r"C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\sim_settings\mass.tiff")
-    # ~ data = 500*(data - np.min(data))/(np.max(data) - np.min(data))
-    # ~ box_plot_3d(data, ax)
-    # ~ plt.show()
-    
-    # ~ pars = np.load(r"C:\Users\kogar\OneDrive\Documents\GitHub\Ising-Model\results\pars_combine.npy")
-    # ~ fig = plt.figure()
-    # ~ ax = fig.add_subplot(projection='3d')    
-    # ~ ax.scatter(pars[:, 0], pars[:, 1], pars[:, 2])
-    # ~ plt.show()
-    
-    
-    
     

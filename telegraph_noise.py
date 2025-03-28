@@ -1,9 +1,10 @@
 """
 Author: Thomas Sutter
 Description:
-    Code here creates the class "Model" that allows one 
-    to initialize an Ising model and execute time evolution upon it.
-    This script contains most of the heavier computational functions of this project
+    Telegraph noise model described in the paper
+    Some variable psi(t) that is stable and -1 and 1.
+    Time evolution then updates psi(t) with probability of flipping sign
+    the sign flip takes t_conv many steps
 """
 
 # Path for imageJ: C:\Users\thoma\Documents\GitHub\Ising-Model\results\default\time_sequence
