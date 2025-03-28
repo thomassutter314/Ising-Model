@@ -176,8 +176,6 @@ def load_and_construct_field(pars_loc = 'pars.npy', L = 100, A = 1, sigma = 1, p
 # ~ load_pars_and_combine(['pars_1.npy', 'pars_2.npy', 'pars_3.npy', 'pars_4.npy', 'pars_5.npy', 'pars_6.npy', 'pars_7.npy', 'pars_8.npy', 'pars_9.npy', 'pars_10.npy'])
 # ~ load_pars_and_combine(['pars_1.npy','pars_2.npy', 'pars_4.npy', 'pars_5.npy', 'pars_6.npy', 'pars_7.npy', 'pars_11.npy', 'pars_12.npy', 'pars_13.npy', 'pars_14.npy', 'pars_15.npy', 'pars_16.npy'])
 
-# ~ load_and_construct_field(pars_loc = 'results//pars_combine.npy')
-# ~ load_and_construct_mass(pars_loc = 'pars.npy')
 
 load_and_construct_field(pars_loc = 'pars.npy')
 
